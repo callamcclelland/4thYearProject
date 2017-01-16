@@ -31,7 +31,7 @@ import untangle
 from shutil import copyfile
 from qtGUI import monitor
 from geojson import Point
-from PyQt5.Qt import pyqtSlot
+from PyQt5.Qt import pyqtSlot, QIntValidator, QDoubleValidator
 from PyQt5.Qt import pyqtSignal
 
 class Ui_MainWindow(QtCore.QObject):
@@ -49,6 +49,9 @@ class Ui_MainWindow(QtCore.QObject):
         self.power = []
         self.latitude = []
         self.longitude = []
+        self.waypoints = []
+        
+        #MainWindow
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(899, 600)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -86,12 +89,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.verticalLayout.addWidget(self.flightLabel)
         #map
         
-        #map_osm = folium.Map(location=[45.3852, -75.6969], zoom_start=15)
-        #folium.CircleMarker([45.3854, -75.6969], radius = 2, color='#3186cc').add_to(map_osm)
-        #folium.CircleMarker([45.3852, -75.6966], radius = 2, color='#3186cc').add_to(map_osm)
-        #folium.CircleMarker([45.3852, -75.6974], radius = 2, color='#3186cc').add_to(map_osm)
         map_google = maps.Map()
-        # Add Beijing, you'll want to use your geocoded points here:
         with open("map.html", "w") as out:
             print(map_google, file=out)
         self.map = QWebView(self.centralwidget)
@@ -100,33 +98,73 @@ class Ui_MainWindow(QtCore.QObject):
         self.verticalLayout.addWidget(self.map)
         self.mysignal.connect(self.changeMap)
         
-        
-        self.batteryLabel = QtWidgets.QLabel(self.centralwidget)
-        self.label_3 = QtWidgets.QLabel(self.centralwidget)
-        self.label_3.setObjectName("label_3")
-        self.verticalLayout.addWidget(self.label_3)
+        #Controls
+        self.controlLabel = QtWidgets.QLabel(self.centralwidget)
+        self.controlLabel.setObjectName("controlLabel")
+        self.verticalLayout.addWidget(self.controlLabel)
+        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_2.setContentsMargins(-1, -1, -1, 0)
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.originLabelLat = QtWidgets.QLabel(self.centralwidget)
+        self.originLabelLat.setObjectName("originLabelLat")
+        self.horizontalLayout_2.addWidget(self.originLabelLat)
+        self.OriginEditLat = QtWidgets.QLineEdit(self.centralwidget)
+        self.OriginEditLat.setObjectName("OriginEditLat")
+        self.OriginEditLat.setValidator(QDoubleValidator(-90.0, 90.0, 3,))
+        self.OriginEditLat.textChanged.connect(self.textChanged)
+        self.horizontalLayout_2.addWidget(self.OriginEditLat)
+        self.originLabelLon = QtWidgets.QLabel(self.centralwidget)
+        self.originLabelLon.setObjectName("originLabelLon")
+        self.horizontalLayout_2.addWidget(self.originLabelLon)
+        self.OriginEditLon = QtWidgets.QLineEdit(self.centralwidget)
+        self.OriginEditLon.setObjectName("OriginEditLon")
+        self.OriginEditLon.setValidator(QDoubleValidator(-180.0, 180.0,3,))
+        self.OriginEditLon.textChanged.connect(self.textChanged)
+        self.horizontalLayout_2.addWidget(self.OriginEditLon)
+        self.radiusLabel = QtWidgets.QLabel(self.centralwidget)
+        self.radiusLabel.setObjectName("radiusLabel")
+        self.horizontalLayout_2.addWidget(self.radiusLabel)
+        self.radiusEdit = QtWidgets.QLineEdit(self.centralwidget)
+        self.radiusEdit.setObjectName("radiusEdit")
+        self.radiusEdit.setValidator(QDoubleValidator(0, 60,3,))
+        self.radiusEdit.textChanged.connect(self.textChanged)
+        self.horizontalLayout_2.addWidget(self.radiusEdit)
+        self.initialization = QtWidgets.QPushButton(self.centralwidget)
+        self.initialization.setObjectName("initialization")
+        self.initialization.clicked.connect(self.initalizeWaypoints)
+        self.initialization.setEnabled(False)
+        self.horizontalLayout_2.addWidget(self.initialization)
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
         self.returnHome = QtWidgets.QPushButton(self.centralwidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(1)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.returnHome.sizePolicy().hasHeightForWidth())
         self.returnHome.setSizePolicy(sizePolicy)
         self.returnHome.setObjectName("returnHome")
         self.horizontalLayout_5.addWidget(self.returnHome)
         self.hover = QtWidgets.QPushButton(self.centralwidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(1)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.hover.sizePolicy().hasHeightForWidth())
         self.hover.setSizePolicy(sizePolicy)
         self.hover.setObjectName("hover")
         self.horizontalLayout_5.addWidget(self.hover)
-        spacerItem4 = QtWidgets.QSpacerItem(0, 60, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.Emerg = QtWidgets.QPushButton(self.centralwidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.Emerg.sizePolicy().hasHeightForWidth())
+        self.Emerg.setSizePolicy(sizePolicy)
+        self.Emerg.setObjectName("Emerg")
+        self.horizontalLayout_5.addWidget(self.Emerg)
+        spacerItem4 = QtWidgets.QSpacerItem(40, 300, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.horizontalLayout_5.addItem(spacerItem4)
         self.verticalLayout.addLayout(self.horizontalLayout_5)
-        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.batteryLabel = QtWidgets.QLabel(self.centralwidget)
         self.batteryLabel.setObjectName("batteryLabel")
         self.verticalLayout.addWidget(self.batteryLabel)
         self.batteryProgress = QtWidgets.QProgressBar(self.centralwidget)
@@ -160,9 +198,14 @@ class Ui_MainWindow(QtCore.QObject):
         self.leftButton.setText(_translate("MainWindow", "PushButton"))
         self.rightButton.setText(_translate("MainWindow", "PushButton"))
         self.flightLabel.setText(_translate("MainWindow", "Flight Path"))
-        self.label_3.setText(_translate("MainWindow", "Controls"))
+        self.controlLabel.setText(_translate("MainWindow", "Controls"))
+        self.originLabelLat.setText(_translate("MainWindow", "Latitude"))
+        self.originLabelLon.setText(_translate("MainWindow", "Longitude"))
+        self.radiusLabel.setText(_translate("MainWindow", "Radius"))
+        self.initialization.setText(_translate("MainWindow", "Enter"))
         self.returnHome.setText(_translate("MainWindow", "Return Home"))
-        self.hover.setText(_translate("MainWindow", "Hover"))
+        self.hover.setText(_translate("MainWindow", "Hover")) 
+        self.Emerg.setText(_translate("MainWindow", "Emergency Land"))
         self.batteryLabel.setText(_translate("MainWindow", "Battery Power"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.actionFile.setText(_translate("MainWindow", "File"))
@@ -178,6 +221,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.mysignal.emit()
     
+    #Add new point to map
     def changeMap(self):
         map_google = maps.Map()
         i = 1;
@@ -190,7 +234,8 @@ class Ui_MainWindow(QtCore.QObject):
         with open("map.html", "w") as out:
             print(map_google, file=out)
         self.map.load(QtCore.QUrl('file:///home/calla/workspace/Gui/src/qtGUI/map.html'))
-          
+    
+    #Scroll Backwards, Update Map
     def scrollLeft(self):
         self.index=self.index-1
       
@@ -198,7 +243,8 @@ class Ui_MainWindow(QtCore.QObject):
             self.index = Ui_MainWindow.INDEX_MAX
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.mysignal.emit()
-        
+    
+    #Scroll forward, update map    
     def scrollRight(self):
         self.index=self.index+1
       
@@ -206,6 +252,15 @@ class Ui_MainWindow(QtCore.QObject):
             self.index = Ui_MainWindow.INDEX_MIN
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.mysignal.emit()
+    
+    def textChanged(self):
+        if(not self.OriginEditLat.text() or not self.OriginEditLon.text() or not self.radiusEdit.text()):
+            self.initialization.setEnabled(False)
+        else:
+            self.initialization.setEnabled(True)
+    
+    def initalizeWaypoints(self):
+        i=0
            
 if __name__ == '__main__':
     
