@@ -23,6 +23,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWebKit import *
 from PyQt5.QtWebKitWidgets import *
 import sys
+import math
 import time
 import folium
 import maps
@@ -33,6 +34,7 @@ from qtGUI import monitor
 from geojson import Point
 from PyQt5.Qt import pyqtSlot, QIntValidator, QDoubleValidator
 from PyQt5.Qt import pyqtSignal
+from PyQt5.QtWidgets import QMessageBox
 
 class Ui_MainWindow(QtCore.QObject):
     INDEX_MAX = 3
@@ -50,6 +52,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.latitude = []
         self.longitude = []
         self.waypoints = []
+        self.initialized = False
         
         #MainWindow
         MainWindow.setObjectName("MainWindow")
@@ -254,14 +257,29 @@ class Ui_MainWindow(QtCore.QObject):
         self.mysignal.emit()
     
     def textChanged(self):
-        if(not self.OriginEditLat.text() or not self.OriginEditLon.text() or not self.radiusEdit.text()):
-            self.initialization.setEnabled(False)
-        else:
-            self.initialization.setEnabled(True)
+        if(not self.initialized):
+            if(not self.OriginEditLat.text() or not self.OriginEditLon.text() or not self.radiusEdit.text()):
+                self.initialization.setEnabled(False)
+            else:
+                self.initialization.setEnabled(True)
     
     def initalizeWaypoints(self):
-        i=0
-           
+        self.initialized = True
+        self.initialization.setEnabled(False)
+        lat = float(self.OriginEditLat.text())
+        lon = float(self.OriginEditLon.text())
+        radius = float(self.radiusEdit.text())
+        if(lat < -90.0 or lat > 90.0 or lon <-180 or lon >180):
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText("Origin entered is outside standard latitude/longitude coordinates")
+            msg.setWindowTitle("Error with Origin Point")
+            msg.exec()
+            self.initialized = False
+        else:
+            for x in range(0,20):
+                self.waypoints.append([lat+radius*math.cos(math.radians(18)*x), lon+radius*math.sin(math.radians(18)*x)])
+        
 if __name__ == '__main__':
     
     app = QtWidgets.QApplication(sys.argv)
