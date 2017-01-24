@@ -1,24 +1,3 @@
-'''
-Created on Oct 22, 2016
-
-@author: calla
-'''
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'mainwindow.ui'
-#
-# Created by: PyQt5 UI code generator 5.7
-#
-# WARNING! All changes made in this file will be lost!
-
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'mainwindow.ui.autosave.autosave'
-#
-# Created by: PyQt5 UI code generator 5.7
-#
-# WARNING! All changes made in this file will be lost!
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWebKit import *
 from PyQt5.QtWebKitWidgets import *
@@ -35,6 +14,8 @@ from geojson import Point
 from PyQt5.Qt import pyqtSlot, QIntValidator, QDoubleValidator
 from PyQt5.Qt import pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
+
+import tester
 
 class Ui_MainWindow(QtCore.QObject):
     INDEX_MAX = 3
@@ -98,6 +79,10 @@ class Ui_MainWindow(QtCore.QObject):
         self.map = QWebView(self.centralwidget)
         self.map.load(QtCore.QUrl('file:///home/calla/workspace/Gui/src/qtGUI/map.html'))
         self.map.setObjectName("map")
+        #TEST#######################
+        self.frame = self.map.page().mainFrame()
+        self.station_location = tester.StationLocation()
+        self.frame.addToJavaScriptWindowObject('statLoc', self)
         self.verticalLayout.addWidget(self.map)
         self.mysignal.connect(self.changeMap)
         
@@ -262,7 +247,13 @@ class Ui_MainWindow(QtCore.QObject):
                 self.initialization.setEnabled(False)
             else:
                 self.initialization.setEnabled(True)
-    
+                
+    @QtCore.pyqtSlot(float, float)
+    def updateLoc(self,lat,long):
+        self.latitude = lat
+        self.longitude = long
+        print(self.latitude, self.longitude)
+           
     def initalizeWaypoints(self):
         self.initialized = True
         self.initialization.setEnabled(False)

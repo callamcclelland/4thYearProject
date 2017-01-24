@@ -23,7 +23,8 @@ class Map(object):
                 }});""".format(lat=x[0], lon=x[1]) for x in self._main_point
             ])
         return """
-            <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false"></script>
+            <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=true"></script>
+            <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
             <div id="map-canvas" style="height: 100%; width: 100%"></div>
             <script type="text/javascript">
                 var map;
@@ -32,8 +33,15 @@ class Map(object):
                         zoom: 18,
                         center: new google.maps.LatLng({centerLat}, {centerLon})
                     }});
-                    {markersCode}{markerMain}
-                }}
+                    map.addListener('click', function(e){{
+                        var latitude = e.latLng.lat();
+                        var longitude = e.latLng.lng();
+                        if(confirm("Add Point to path: " +latitude+", " +longitude)){{
+                            statLoc.updateLoc(latitude, longitude)
+                        }}
+                    }});
+                    {markersCode}{markerMain} 
+                }}   
                 google.maps.event.addDomListener(window, 'load', show_map);
             </script>
         """.format(centerLat=45.3852 , centerLon=-75.6969,
