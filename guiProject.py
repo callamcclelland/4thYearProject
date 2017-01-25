@@ -30,8 +30,8 @@ class Ui_MainWindow(QtCore.QObject):
         self.coordinates = []
         self.index = 1
         self.power = []
-        self.latitude = []
-        self.longitude = []
+        self.latitude = 0
+        self.longitude = 0
         self.waypoints = []
         self.initialized = False
         
@@ -119,7 +119,6 @@ class Ui_MainWindow(QtCore.QObject):
         self.horizontalLayout_2.addWidget(self.radiusEdit)
         self.initialization = QtWidgets.QPushButton(self.centralwidget)
         self.initialization.setObjectName("initialization")
-        self.initialization.clicked.connect(self.initalizeWaypoints)
         self.initialization.setEnabled(False)
         self.horizontalLayout_2.addWidget(self.initialization)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
@@ -201,27 +200,23 @@ class Ui_MainWindow(QtCore.QObject):
     
     def update(self, xml):
         doc = untangle.parse(xml)
-        latitude = float(doc.data.gps['latitude'])
-        longitude = float(doc.data.gps['longitude'])
-        self.coordinates.append([latitude, longitude])
+        self.latitude = float(doc.data.gps['latitude'])
+        self.longitude = float(doc.data.gps['longitude'])
+        self.coordinates.append([self.latitude, self.longitude])
         power = float(doc.data.battery['power'])
         self.batteryProgress.setProperty("value", power)
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+        
         self.mysignal.emit()
     
     #Add new point to map
     def changeMap(self):
-        map_google = maps.Map()
-        i = 1;
-        for point in self.coordinates:
-            if(self.index == i):
-                map_google.add_main_point((point[0], point[1]))
-            else:
-                map_google.add_point((point[0], point[1]))
-            i = i+1
-        with open("map.html", "w") as out:
-            print(map_google, file=out)
-        self.map.load(QtCore.QUrl('file:///home/calla/workspace/Gui/src/qtGUI/map.html'))
+        self.frame.evaluateJavaScript("addMarker("+str(self.latitude)+", "+str(self.longitude)+")")
+         #   if(self.index == i):
+           #     map_google.add_main_point((point[0], point[1]))
+       #     else:
+        #        map_google.add_point((point[0], point[1]))
+         #   i = i+1
     
     #Scroll Backwards, Update Map
     def scrollLeft(self):
@@ -249,27 +244,9 @@ class Ui_MainWindow(QtCore.QObject):
                 self.initialization.setEnabled(True)
                 
     @QtCore.pyqtSlot(float, float)
-    def updateLoc(self,lat,long):
-        self.latitude = lat
-        self.longitude = long
-        print(self.latitude, self.longitude)
-           
-    def initalizeWaypoints(self):
-        self.initialized = True
-        self.initialization.setEnabled(False)
-        lat = float(self.OriginEditLat.text())
-        lon = float(self.OriginEditLon.text())
-        radius = float(self.radiusEdit.text())
-        if(lat < -90.0 or lat > 90.0 or lon <-180 or lon >180):
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Information)
-            msg.setText("Origin entered is outside standard latitude/longitude coordinates")
-            msg.setWindowTitle("Error with Origin Point")
-            msg.exec()
-            self.initialized = False
-        else:
-            for x in range(0,20):
-                self.waypoints.append([lat+radius*math.cos(math.radians(18)*x), lon+radius*math.sin(math.radians(18)*x)])
+    def addPath(self,lat,lng):
+        self.waypoints.append([lat,lng])
+        print(" " + str(lat) + " " + str(lng))
         
 if __name__ == '__main__':
     
