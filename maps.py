@@ -18,18 +18,19 @@ class Map(object):
                         if(!initialized){{
                             var latitude = e.latLng.lat();
                             var longitude = e.latLng.lng();
-                            if(confirm("Add Point to path: " +latitude+", " +longitude)){{
-                                statLoc.addPath(latitude, longitude)
-                                if(confirm("Finished Path?")){{
-                                    initialized = 1;
-                                }}
-                                var marker = new google.maps.Marker({{
-                                    position: e.latLng,
-                                    map: map,
-                                    icon: 'http://maps.google.com/mapfiles/ms/icons/green.png'
-                                    
-                                }});
+                            statLoc.addPath(latitude, longitude)
+                            if(confirm("Finished Path?")){{
+                                initialized = 1;
                             }}
+                            var marker = new google.maps.Marker({{
+                                position: e.latLng,
+                                map: map,
+                                icon: 'http://maps.google.com/mapfiles/ms/icons/green.png'                       
+                             }});
+                            marker.addListener("dblclick", function() {{
+                                marker.setMap(null);
+                                statLoc.removePoint(latitude, longitude)
+                            }});
                         }}
                     }});
                 }}   
@@ -39,6 +40,11 @@ class Map(object):
                                                                     map: map
                                                                     }});
                     }}
+                function setCenter(lat, lng){{
+                        alert("test");
+                        map.setCenter(new google.maps.LatLng(lat, lng));
+                        map.setZoom(18);
+                }}
                 google.maps.event.addDomListener(window, 'load', show_map);
             </script>
         """.format(centerLat=45.3852 , centerLon=-75.6969)

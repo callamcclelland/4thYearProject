@@ -24,6 +24,7 @@ class Ui_MainWindow(QtCore.QObject):
     IMAGE_TYPE = ".jpeg"
     DATA_TYPE = ".xml"
     mysignal = pyqtSignal()
+    updateLoc = pyqtSignal()
     
         
     def setupUi(self, MainWindow):
@@ -34,6 +35,8 @@ class Ui_MainWindow(QtCore.QObject):
         self.longitude = 0
         self.waypoints = []
         self.initialized = False
+        self.mapLocLat =0
+        self.mapLocLng =0
         
         #MainWindow
         MainWindow.setObjectName("MainWindow")
@@ -85,6 +88,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.frame.addToJavaScriptWindowObject('statLoc', self)
         self.verticalLayout.addWidget(self.map)
         self.mysignal.connect(self.changeMap)
+        self.updateLoc.connect(self.panToLoc)
         
         #Controls
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
@@ -99,7 +103,6 @@ class Ui_MainWindow(QtCore.QObject):
         self.OriginEditLat = QtWidgets.QLineEdit(self.centralwidget)
         self.OriginEditLat.setObjectName("OriginEditLat")
         self.OriginEditLat.setValidator(QDoubleValidator(-90.0, 90.0, 3,))
-        self.OriginEditLat.textChanged.connect(self.textChanged)
         self.horizontalLayout_2.addWidget(self.OriginEditLat)
         self.originLabelLon = QtWidgets.QLabel(self.centralwidget)
         self.originLabelLon.setObjectName("originLabelLon")
@@ -107,20 +110,15 @@ class Ui_MainWindow(QtCore.QObject):
         self.OriginEditLon = QtWidgets.QLineEdit(self.centralwidget)
         self.OriginEditLon.setObjectName("OriginEditLon")
         self.OriginEditLon.setValidator(QDoubleValidator(-180.0, 180.0,3,))
-        self.OriginEditLon.textChanged.connect(self.textChanged)
         self.horizontalLayout_2.addWidget(self.OriginEditLon)
-        self.radiusLabel = QtWidgets.QLabel(self.centralwidget)
-        self.radiusLabel.setObjectName("radiusLabel")
-        self.horizontalLayout_2.addWidget(self.radiusLabel)
-        self.radiusEdit = QtWidgets.QLineEdit(self.centralwidget)
-        self.radiusEdit.setObjectName("radiusEdit")
-        self.radiusEdit.setValidator(QDoubleValidator(0, 60,3,))
-        self.radiusEdit.textChanged.connect(self.textChanged)
-        self.horizontalLayout_2.addWidget(self.radiusEdit)
         self.initialization = QtWidgets.QPushButton(self.centralwidget)
         self.initialization.setObjectName("initialization")
-        self.initialization.setEnabled(False)
+        self.initialization.clicked.connect(self.setMapLoc)
         self.horizontalLayout_2.addWidget(self.initialization)
+        self.pathFinished = QtWidgets.QPushButton(self.centralwidget)
+        self.pathFinished.setObjectName("pathFinished")
+        self.pathFinished.clicked.connect(self.init)
+        self.horizontalLayout_2.addWidget(self.pathFinished)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
@@ -188,8 +186,8 @@ class Ui_MainWindow(QtCore.QObject):
         self.controlLabel.setText(_translate("MainWindow", "Controls"))
         self.originLabelLat.setText(_translate("MainWindow", "Latitude"))
         self.originLabelLon.setText(_translate("MainWindow", "Longitude"))
-        self.radiusLabel.setText(_translate("MainWindow", "Radius"))
         self.initialization.setText(_translate("MainWindow", "Enter"))
+        self.pathFinished.setText(_translate("MainWindow", "Path Complete"))
         self.returnHome.setText(_translate("MainWindow", "Return Home"))
         self.hover.setText(_translate("MainWindow", "Hover")) 
         self.Emerg.setText(_translate("MainWindow", "Emergency Land"))
@@ -235,18 +233,30 @@ class Ui_MainWindow(QtCore.QObject):
             self.index = Ui_MainWindow.INDEX_MIN
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.mysignal.emit()
-    
-    def textChanged(self):
-        if(not self.initialized):
-            if(not self.OriginEditLat.text() or not self.OriginEditLon.text() or not self.radiusEdit.text()):
-                self.initialization.setEnabled(False)
-            else:
-                self.initialization.setEnabled(True)
                 
     @QtCore.pyqtSlot(float, float)
     def addPath(self,lat,lng):
         self.waypoints.append([lat,lng])
-        print(" " + str(lat) + " " + str(lng))
+        print(self.waypoints)
+        
+    @QtCore.pyqtSlot(float, float)
+    def removePoint(self,lat,lng):
+        self.waypoints.remove([lat,lng])
+        print(self.waypoints)
+        
+    
+    def setMapLoc(self):
+        self.mapLocLat= self.OriginEditLat.text()
+        self.mapLocLng = self.OriginEditLon.text()
+        self.updateLoc.emit()
+        
+    def panToLoc(self):
+        print("setCenter("+self.mapLocLat+", "+self.mapLocLng+")")
+        self.frame.evaluateJavaScript("setCenter("+self.mapLocLat+", "+self.mapLocLng+")")
+        
+    def init(self):
+        init = not init
+            
         
 if __name__ == '__main__':
     
