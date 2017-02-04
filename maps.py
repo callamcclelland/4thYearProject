@@ -8,28 +8,27 @@ class Map(object):
             <div id="map-canvas" style="height: 100%; width: 100%"></div>
             <script type="text/javascript">
                 var map;
-                var initialized = 0;
+                var pathComplete = 0;
                 function show_map() {{
                     map = new google.maps.Map(document.getElementById("map-canvas"), {{
                         zoom: 18,
                         center: new google.maps.LatLng({centerLat}, {centerLon})
                     }});
                     map.addListener('click', function(e){{
-                        if(!initialized){{
+                        if(!pathComplete){{
                             var latitude = e.latLng.lat();
                             var longitude = e.latLng.lng();
                             statLoc.addPath(latitude, longitude)
-                            if(confirm("Finished Path?")){{
-                                initialized = 1;
-                            }}
                             var marker = new google.maps.Marker({{
                                 position: e.latLng,
                                 map: map,
                                 icon: 'http://maps.google.com/mapfiles/ms/icons/green.png'                       
                              }});
                             marker.addListener("dblclick", function() {{
-                                marker.setMap(null);
-                                statLoc.removePoint(latitude, longitude)
+                                if(!pathComplete){{
+                                    marker.setMap(null);
+                                    statLoc.removePoint(latitude, longitude)  
+                                }}  
                             }});
                         }}
                     }});
@@ -40,10 +39,16 @@ class Map(object):
                                                                     map: map
                                                                     }});
                     }}
+                function setPathComplete(){{
+                        pathComplete = !pathComplete;
+                }}
                 function setCenter(lat, lng){{
-                        alert("test");
-                        map.setCenter(new google.maps.LatLng(lat, lng));
-                        map.setZoom(18);
+                        if(lat<-90 || lat>90 || lng < -180 || lng >180){{
+                            alert("Not valid Latitude and/or Longitude")
+                        }}else{{
+                            map.setCenter(new google.maps.LatLng(lat, lng));
+                            map.setZoom(18);
+                        }}
                 }}
                 google.maps.event.addDomListener(window, 'load', show_map);
             </script>

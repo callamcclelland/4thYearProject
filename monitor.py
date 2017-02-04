@@ -50,13 +50,7 @@ class Handler(FileSystemEventHandler):
             for fileData in glob.glob(self.dirInput+"/*" +  guiProject.Ui_MainWindow.DATA_TYPE):
                 if(self.index > guiProject.Ui_MainWindow.INDEX_MAX):
                     self.index = guiProject.Ui_MainWindow.INDEX_MIN
-                currTime = datetime.datetime.now().strftime("%I-%M-%S")
-                shutil.move(fileImage, self.dirStore+"/"+ currTime +"-image" +guiProject.Ui_MainWindow.IMAGE_TYPE)
-                shutil.copy(self.dirStore+"/"+ currTime +"-image" +guiProject.Ui_MainWindow.IMAGE_TYPE, 
-                         self.dirDisplay+"/"+ guiProject.Ui_MainWindow.IMAGE_NAME +str(self.index)+ guiProject.Ui_MainWindow.IMAGE_TYPE)
-                xml_name =  self.dirStore+"/"+ currTime +"-data" +guiProject.Ui_MainWindow.DATA_TYPE
-                shutil.move(fileData, xml_name)
                 self.index = self.index+1
-                self.mainWindow.update(xml_name)
+                self.mainWindow.update( fileImage, fileData)
 
             

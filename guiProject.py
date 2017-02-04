@@ -5,6 +5,8 @@ import sys
 import math
 import time
 import folium
+import shutil
+import datetime
 import maps
 import threading
 import untangle
@@ -16,7 +18,8 @@ from PyQt5.Qt import pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
 
 import tester
-
+ 
+ #TODO: Find out how to get back to first index if within % of first lat and lng
 class Ui_MainWindow(QtCore.QObject):
     INDEX_MAX = 3
     INDEX_MIN = 1
@@ -34,9 +37,12 @@ class Ui_MainWindow(QtCore.QObject):
         self.latitude = 0
         self.longitude = 0
         self.waypoints = []
-        self.initialized = False
         self.mapLocLat =0
         self.mapLocLng =0
+        self.pictureLocation = 1
+        self.dirStore = "/home/calla/Output"
+        self.dirInput = "/home/calla/Input"
+        self.dirDisplay = "/home/calla/workspace/Gui/src/qtGUI"
         
         #MainWindow
         MainWindow.setObjectName("MainWindow")
@@ -94,6 +100,10 @@ class Ui_MainWindow(QtCore.QObject):
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
         self.controlLabel.setObjectName("controlLabel")
         self.verticalLayout.addWidget(self.controlLabel)
+        self.pathDonePushButton = QtWidgets.QPushButton(self.centralwidget)
+        self.pathDonePushButton.setObjectName("pathDonePushButton")
+        self.pathDonePushButton.clicked.connect(self.pathSet)
+        self.verticalLayout.addWidget(self.pathDonePushButton)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setContentsMargins(-1, -1, -1, 0)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -102,23 +112,19 @@ class Ui_MainWindow(QtCore.QObject):
         self.horizontalLayout_2.addWidget(self.originLabelLat)
         self.OriginEditLat = QtWidgets.QLineEdit(self.centralwidget)
         self.OriginEditLat.setObjectName("OriginEditLat")
-        self.OriginEditLat.setValidator(QDoubleValidator(-90.0, 90.0, 3,))
+        self.OriginEditLat.setValidator(QDoubleValidator(-90.0, 90.0, 8,))
         self.horizontalLayout_2.addWidget(self.OriginEditLat)
         self.originLabelLon = QtWidgets.QLabel(self.centralwidget)
         self.originLabelLon.setObjectName("originLabelLon")
         self.horizontalLayout_2.addWidget(self.originLabelLon)
         self.OriginEditLon = QtWidgets.QLineEdit(self.centralwidget)
         self.OriginEditLon.setObjectName("OriginEditLon")
-        self.OriginEditLon.setValidator(QDoubleValidator(-180.0, 180.0,3,))
+        self.OriginEditLon.setValidator(QDoubleValidator(-180.0, 180.0,8,))
         self.horizontalLayout_2.addWidget(self.OriginEditLon)
-        self.initialization = QtWidgets.QPushButton(self.centralwidget)
-        self.initialization.setObjectName("initialization")
-        self.initialization.clicked.connect(self.setMapLoc)
-        self.horizontalLayout_2.addWidget(self.initialization)
-        self.pathFinished = QtWidgets.QPushButton(self.centralwidget)
-        self.pathFinished.setObjectName("pathFinished")
-        self.pathFinished.clicked.connect(self.init)
-        self.horizontalLayout_2.addWidget(self.pathFinished)
+        self.centerMap = QtWidgets.QPushButton(self.centralwidget)
+        self.centerMap.setObjectName("centerMap")
+        self.centerMap.clicked.connect(self.setMapLoc)
+        self.horizontalLayout_2.addWidget(self.centerMap)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
@@ -183,11 +189,11 @@ class Ui_MainWindow(QtCore.QObject):
         self.leftButton.setText(_translate("MainWindow", "PushButton"))
         self.rightButton.setText(_translate("MainWindow", "PushButton"))
         self.flightLabel.setText(_translate("MainWindow", "Flight Path"))
-        self.controlLabel.setText(_translate("MainWindow", "Controls"))
+        self.controlLabel.setText(_translate("MainWindow", "Map and UAV Controls"))
+        self.pathDonePushButton.setText(_translate("MainWindow", "Path Complete"))
         self.originLabelLat.setText(_translate("MainWindow", "Latitude"))
         self.originLabelLon.setText(_translate("MainWindow", "Longitude"))
-        self.initialization.setText(_translate("MainWindow", "Enter"))
-        self.pathFinished.setText(_translate("MainWindow", "Path Complete"))
+        self.centerMap.setText(_translate("MainWindow", "Center Map"))
         self.returnHome.setText(_translate("MainWindow", "Return Home"))
         self.hover.setText(_translate("MainWindow", "Hover")) 
         self.Emerg.setText(_translate("MainWindow", "Emergency Land"))
@@ -196,8 +202,18 @@ class Ui_MainWindow(QtCore.QObject):
         self.actionFile.setText(_translate("MainWindow", "File"))
     
     
-    def update(self, xml):
-        doc = untangle.parse(xml)
+    def update(self, fileImage, fileData):
+        currTime = datetime.datetime.now().strftime("%I-%M-%S")
+        shutil.move(fileImage, self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE)
+        shutil.copy(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 
+                    self.dirDisplay+"/"+ Ui_MainWindow.IMAGE_NAME +str(self.pictureLocation)+ Ui_MainWindow.IMAGE_TYPE)
+        xmlName =  self.dirStore+"/"+ currTime +"-data" +Ui_MainWindow.DATA_TYPE
+        shutil.move(fileData, xmlName)
+        if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
+            self.pictureLocation = Ui_MainWindow.INDEX_MIN
+        else:
+            self.pictureLocation = self.pictureLocation +1
+        doc = untangle.parse(xmlName)
         self.latitude = float(doc.data.gps['latitude'])
         self.longitude = float(doc.data.gps['longitude'])
         self.coordinates.append([self.latitude, self.longitude])
@@ -254,8 +270,8 @@ class Ui_MainWindow(QtCore.QObject):
         print("setCenter("+self.mapLocLat+", "+self.mapLocLng+")")
         self.frame.evaluateJavaScript("setCenter("+self.mapLocLat+", "+self.mapLocLng+")")
         
-    def init(self):
-        init = not init
+    def pathSet(self):
+        self.frame.evaluateJavaScript("setPathComplete()")
             
         
 if __name__ == '__main__':
@@ -264,7 +280,7 @@ if __name__ == '__main__':
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
-    w = monitor.Watcher("/home/calla/Input", "/home/calla/Output", "/home/calla/workspace/Gui/src/qtGUI", ui)
+    w = monitor.Watcher(ui.dirInput, ui.dirStore, ui.dirDisplay, ui)
     t1 = threading.Thread(target=w.run, daemon=True)
     t1.start()
     sys.exit(app.exec_())
