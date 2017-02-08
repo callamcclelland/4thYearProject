@@ -9,6 +9,7 @@ class Map(object):
             <script type="text/javascript">
                 var map;
                 var pathComplete = 0;
+                var markers = [];
                 function show_map() {{
                     map = new google.maps.Map(document.getElementById("map-canvas"), {{
                         zoom: 18,
@@ -38,10 +39,19 @@ class Map(object):
                         var beachMarker = new google.maps.Marker({{position: myLatLng,
                                                                     map: map
                                                                     }});
+                        markers.push(beachMarker);
                     }}
                 function setPathComplete(){{
                         pathComplete = !pathComplete;
                 }}
+                function removeMarker(lat, lng){{
+                        var removeLatLng = new google.maps.LatLng(lat,lng);
+                        for(i=0;i<markers.length;i++){{
+                            if(markers[i].getPosition().equals(removeLatLng)){{
+                                markers[i].setMap(null);
+                            }}
+                        }}
+                    }}
                 function setCenter(lat, lng){{
                         if(lat<-90 || lat>90 || lng < -180 || lng >180){{
                             alert("Not valid Latitude and/or Longitude")

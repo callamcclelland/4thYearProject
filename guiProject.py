@@ -2,26 +2,19 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWebKit import *
 from PyQt5.QtWebKitWidgets import *
 import sys
-import math
-import time
-import folium
 import shutil
 import datetime
 import maps
 import threading
 import untangle
-from shutil import copyfile
 from qtGUI import monitor
-from geojson import Point
-from PyQt5.Qt import pyqtSlot, QIntValidator, QDoubleValidator
+from PyQt5.Qt import QDoubleValidator
 from PyQt5.Qt import pyqtSignal
-from PyQt5.QtWidgets import QMessageBox
-
 import tester
  
  #TODO: Find out how to get back to first index if within % of first lat and lng
 class Ui_MainWindow(QtCore.QObject):
-    INDEX_MAX = 3
+    INDEX_MAX = 2
     INDEX_MIN = 1
     IMAGE_NAME = "image"
     IMAGE_TYPE = ".jpeg"
@@ -37,27 +30,31 @@ class Ui_MainWindow(QtCore.QObject):
         self.latitude = 0
         self.longitude = 0
         self.waypoints = []
+        self.uavLocations = []
         self.mapLocLat =0
         self.mapLocLng =0
-        self.pictureLocation = 1
+        self.pictureLocation = 0
         self.dirStore = "/home/calla/Output"
         self.dirInput = "/home/calla/Input"
         self.dirDisplay = "/home/calla/workspace/Gui/src/qtGUI"
+        self.maxIndex = 0
         
-        #MainWindow
+        #Set up MainWindow
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(899, 600)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
         self.gridLayout.setObjectName("gridLayout")
-        #Image
+        
+        #Image View
         self.image = QtWidgets.QLabel(self.centralwidget)
         self.image.setText("")
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.image.setScaledContents(True)
         self.image.setObjectName("image")
         self.gridLayout.addWidget(self.image, 0, 0, 1, 1)
+        
         #Image Scroll Buttons
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
@@ -74,21 +71,19 @@ class Ui_MainWindow(QtCore.QObject):
         self.gridLayout.addLayout(self.horizontalLayout, 1, 0, 1, 1)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.gridLayout.addItem(spacerItem1, 0, 1, 1, 1)
-        
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
         self.flightLabel = QtWidgets.QLabel(self.centralwidget)
         self.flightLabel.setObjectName("flightLabel")
         self.verticalLayout.addWidget(self.flightLabel)
-        #map
-        
+      
+        #Set Up Map
         map_google = maps.Map()
         with open("map.html", "w") as out:
             print(map_google, file=out)
         self.map = QWebView(self.centralwidget)
         self.map.load(QtCore.QUrl('file:///home/calla/workspace/Gui/src/qtGUI/map.html'))
         self.map.setObjectName("map")
-        #TEST#######################
         self.frame = self.map.page().mainFrame()
         self.station_location = tester.StationLocation()
         self.frame.addToJavaScriptWindowObject('statLoc', self)
@@ -96,7 +91,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.mysignal.connect(self.changeMap)
         self.updateLoc.connect(self.panToLoc)
         
-        #Controls
+        #Controls: MAP; set origin, finish path
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
         self.controlLabel.setObjectName("controlLabel")
         self.verticalLayout.addWidget(self.controlLabel)
@@ -126,35 +121,42 @@ class Ui_MainWindow(QtCore.QObject):
         self.centerMap.clicked.connect(self.setMapLoc)
         self.horizontalLayout_2.addWidget(self.centerMap)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
+        
+        #Controls: UAV; return home, emergency stop, hover
         self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_5.setObjectName("horizontalLayout_5")
-        self.returnHome = QtWidgets.QPushButton(self.centralwidget)
+        self.returnHomeButton = QtWidgets.QPushButton(self.centralwidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.returnHome.sizePolicy().hasHeightForWidth())
-        self.returnHome.setSizePolicy(sizePolicy)
-        self.returnHome.setObjectName("returnHome")
-        self.horizontalLayout_5.addWidget(self.returnHome)
-        self.hover = QtWidgets.QPushButton(self.centralwidget)
+        sizePolicy.setHeightForWidth(self.returnHomeButton.sizePolicy().hasHeightForWidth())
+        self.returnHomeButton.setSizePolicy(sizePolicy)
+        self.returnHomeButton.setObjectName("returnHomeButton")
+        self.returnHomeButton.clicked.connect(self.returnHomeCommand)
+        self.horizontalLayout_5.addWidget(self.returnHomeButton)
+        self.hoverButton = QtWidgets.QPushButton(self.centralwidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.hover.sizePolicy().hasHeightForWidth())
-        self.hover.setSizePolicy(sizePolicy)
-        self.hover.setObjectName("hover")
-        self.horizontalLayout_5.addWidget(self.hover)
-        self.Emerg = QtWidgets.QPushButton(self.centralwidget)
+        sizePolicy.setHeightForWidth(self.hoverButton.sizePolicy().hasHeightForWidth())
+        self.hoverButton.setSizePolicy(sizePolicy)
+        self.hoverButton.setObjectName("hoverButton")
+        self.hoverButton.clicked.connect(self.hoverCommand)
+        self.horizontalLayout_5.addWidget(self.hoverButton)
+        self.emergButton = QtWidgets.QPushButton(self.centralwidget)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.Emerg.sizePolicy().hasHeightForWidth())
-        self.Emerg.setSizePolicy(sizePolicy)
-        self.Emerg.setObjectName("Emerg")
-        self.horizontalLayout_5.addWidget(self.Emerg)
+        sizePolicy.setHeightForWidth(self.emergButton.sizePolicy().hasHeightForWidth())
+        self.emergButton.setSizePolicy(sizePolicy)
+        self.emergButton.setObjectName("emergButton")
+        self.emergButton.clicked.connect(self.emergCommand)
+        self.horizontalLayout_5.addWidget(self.emergButton)
         spacerItem4 = QtWidgets.QSpacerItem(40, 300, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.horizontalLayout_5.addItem(spacerItem4)
         self.verticalLayout.addLayout(self.horizontalLayout_5)
+        
+        #Battery View progress bar
         self.batteryLabel = QtWidgets.QLabel(self.centralwidget)
         self.batteryLabel.setObjectName("batteryLabel")
         self.verticalLayout.addWidget(self.batteryLabel)
@@ -177,12 +179,13 @@ class Ui_MainWindow(QtCore.QObject):
         self.actionFile.setObjectName("actionFile")
         self.menubar.addAction(self.menuFile.menuAction())
         
+        #Display GUI
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
         MainWindow.show()
         
         
-        
+        #Set Widget Text
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
@@ -194,25 +197,30 @@ class Ui_MainWindow(QtCore.QObject):
         self.originLabelLat.setText(_translate("MainWindow", "Latitude"))
         self.originLabelLon.setText(_translate("MainWindow", "Longitude"))
         self.centerMap.setText(_translate("MainWindow", "Center Map"))
-        self.returnHome.setText(_translate("MainWindow", "Return Home"))
-        self.hover.setText(_translate("MainWindow", "Hover")) 
-        self.Emerg.setText(_translate("MainWindow", "Emergency Land"))
+        self.returnHomeButton.setText(_translate("MainWindow", "Return Home"))
+        self.hoverButton.setText(_translate("MainWindow", "Hover")) 
+        self.emergButton.setText(_translate("MainWindow", "Emergency Land"))
         self.batteryLabel.setText(_translate("MainWindow", "Battery Power"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.actionFile.setText(_translate("MainWindow", "File"))
     
-    
+    #update the GUI when image and xml file are delivered to base station
     def update(self, fileImage, fileData):
+        #UPDATE for GPS 
+        if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
+            self.pictureLocation = Ui_MainWindow.INDEX_MIN
+        else:
+            self.pictureLocation = self.pictureLocation +1
+            if(self.pictureLocation > self.maxIndex):
+                self.maxIndex = self.pictureLocation
+        
         currTime = datetime.datetime.now().strftime("%I-%M-%S")
         shutil.move(fileImage, self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE)
         shutil.copy(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 
                     self.dirDisplay+"/"+ Ui_MainWindow.IMAGE_NAME +str(self.pictureLocation)+ Ui_MainWindow.IMAGE_TYPE)
         xmlName =  self.dirStore+"/"+ currTime +"-data" +Ui_MainWindow.DATA_TYPE
         shutil.move(fileData, xmlName)
-        if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
-            self.pictureLocation = Ui_MainWindow.INDEX_MIN
-        else:
-            self.pictureLocation = self.pictureLocation +1
+        
         doc = untangle.parse(xmlName)
         self.latitude = float(doc.data.gps['latitude'])
         self.longitude = float(doc.data.gps['longitude'])
@@ -220,47 +228,47 @@ class Ui_MainWindow(QtCore.QObject):
         power = float(doc.data.battery['power'])
         self.batteryProgress.setProperty("value", power)
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
-        
         self.mysignal.emit()
     
-    #Add new point to map
+    #Add new GPS point to map
     def changeMap(self):
         self.frame.evaluateJavaScript("addMarker("+str(self.latitude)+", "+str(self.longitude)+")")
-         #   if(self.index == i):
-           #     map_google.add_main_point((point[0], point[1]))
-       #     else:
-        #        map_google.add_point((point[0], point[1]))
-         #   i = i+1
-    
-    #Scroll Backwards, Update Map
+        if(self.maxIndex > len(self.uavLocations)):
+            self.uavLocations.append([self.latitude, self.longitude]);
+        else:
+            print(str(self.uavLocations[self.pictureLocation-1][0]) + "   " + str(self.uavLocations[self.pictureLocation-1][1]))
+            self.frame.evaluateJavaScript("removeMarker("+str(self.uavLocations[self.pictureLocation][0]) +", "+str(self.uavLocations[self.pictureLocation][1]) +")")
+            self.uavLocations[self.pictureLocation] = [self.latitude, self.longitude]
+            
+    #Scroll Backwards
     def scrollLeft(self):
         self.index=self.index-1
-      
         if self.index < Ui_MainWindow.INDEX_MIN:
-            self.index = Ui_MainWindow.INDEX_MAX
+            self.index = self.maxIndex
+        print(self.index)
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
-        self.mysignal.emit()
     
-    #Scroll forward, update map    
+    #Scroll forward 
     def scrollRight(self):
         self.index=self.index+1
-      
-        if self.index > Ui_MainWindow.INDEX_MAX:
+        if self.index > self.maxIndex:
             self.index = Ui_MainWindow.INDEX_MIN
+        print(self.index)
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
-        self.mysignal.emit()
-                
+     
+    #Add new path point to waypoint list      
     @QtCore.pyqtSlot(float, float)
     def addPath(self,lat,lng):
         self.waypoints.append([lat,lng])
         print(self.waypoints)
-        
+    
+    #remove path point from waypoint list    
     @QtCore.pyqtSlot(float, float)
     def removePoint(self,lat,lng):
         self.waypoints.remove([lat,lng])
         print(self.waypoints)
         
-    
+    #Set map origin lcoation
     def setMapLoc(self):
         self.mapLocLat= self.OriginEditLat.text()
         self.mapLocLng = self.OriginEditLon.text()
@@ -269,9 +277,22 @@ class Ui_MainWindow(QtCore.QObject):
     def panToLoc(self):
         print("setCenter("+self.mapLocLat+", "+self.mapLocLng+")")
         self.frame.evaluateJavaScript("setCenter("+self.mapLocLat+", "+self.mapLocLng+")")
-        
+    
+    #  toggle path complete boolean; pathComplete = true means points can not be added or removed  
     def pathSet(self):
         self.frame.evaluateJavaScript("setPathComplete()")
+    
+    #send return home command to UAV    
+    def returnHomeCommand(self):
+        print("return home command")
+    
+    #send hover command to UAV
+    def hoverCommand(self):
+        print("hover command")
+     
+    #send energency stop command to UAV    
+    def emergCommand(self):
+        print("emergency stop")
             
         
 if __name__ == '__main__':
