@@ -11,16 +11,23 @@ from qtGUI import monitor
 from PyQt5.Qt import QDoubleValidator
 from PyQt5.Qt import pyqtSignal
 import tester
+import serial
  
- #TODO: Find out how to get back to first index if within % of first lat and lng
+#TO DO:
+#    1) # GPS for circle coming round
+#    2) Comm with Fizza
+#    3) Implement Hover
+#    4) integration with Ann
 class Ui_MainWindow(QtCore.QObject):
-    INDEX_MAX = 2
+    INDEX_MAX = 3
     INDEX_MIN = 1
     IMAGE_NAME = "image"
     IMAGE_TYPE = ".jpeg"
-    DATA_TYPE = ".xml"
+    DATA_TYPE = ".txt"
     mysignal = pyqtSignal()
     updateLoc = pyqtSignal()
+    
+    TESTING_COMM = False
     
         
     def setupUi(self, MainWindow):
@@ -38,6 +45,14 @@ class Ui_MainWindow(QtCore.QObject):
         self.dirInput = "/home/calla/Input"
         self.dirDisplay = "/home/calla/workspace/Gui/src/qtGUI"
         self.maxIndex = 0
+        self.currWaypoint = 0
+        
+        #serial port
+        self.ser = serial.Serial()
+        self.ser.port = '/dev/ttyUSB0'
+        self.ser.baudrate = 9600
+        self.ser.timeout = 1
+        self.ser.open()
         
         #Set up MainWindow
         MainWindow.setObjectName("MainWindow")
@@ -207,6 +222,23 @@ class Ui_MainWindow(QtCore.QObject):
     #update the GUI when image and xml file are delivered to base station
     def update(self, fileImage, fileData):
         #UPDATE for GPS 
+        #Read Textfile
+        #Time used as file name
+        currTime = datetime.datetime.now().strftime("%I-%M-%S")
+        
+        txtName =  self.dirStore+"/"+ currTime +"-data" +Ui_MainWindow.DATA_TYPE
+        shutil.move(fileData, txtName)
+        
+        f =open(txtName, "r")
+        
+        self.latitude = f.readline()
+        self.longitude = f.readline()
+        self.coordinates.append([self.latitude, self.longitude])
+        power = f.readline()
+        self.batteryProgress.setProperty("value", float(power)) 
+        waypoint = f.readline()
+            
+        
         if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
             self.pictureLocation = Ui_MainWindow.INDEX_MIN
         else:
@@ -214,21 +246,20 @@ class Ui_MainWindow(QtCore.QObject):
             if(self.pictureLocation > self.maxIndex):
                 self.maxIndex = self.pictureLocation
         
-        currTime = datetime.datetime.now().strftime("%I-%M-%S")
         shutil.move(fileImage, self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE)
         shutil.copy(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 
                     self.dirDisplay+"/"+ Ui_MainWindow.IMAGE_NAME +str(self.pictureLocation)+ Ui_MainWindow.IMAGE_TYPE)
-        xmlName =  self.dirStore+"/"+ currTime +"-data" +Ui_MainWindow.DATA_TYPE
-        shutil.move(fileData, xmlName)
-        
-        doc = untangle.parse(xmlName)
+       
+        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+        self.mysignal.emit()
+        '''doc = untangle.parse(xmlName)
         self.latitude = float(doc.data.gps['latitude'])
         self.longitude = float(doc.data.gps['longitude'])
         self.coordinates.append([self.latitude, self.longitude])
         power = float(doc.data.battery['power'])
         self.batteryProgress.setProperty("value", power)
         self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
-        self.mysignal.emit()
+        self.mysignal.emit()'''
     
     #Add new GPS point to map
     def changeMap(self):
@@ -237,7 +268,7 @@ class Ui_MainWindow(QtCore.QObject):
             self.uavLocations.append([self.latitude, self.longitude]);
         else:
             print(str(self.uavLocations[self.pictureLocation-1][0]) + "   " + str(self.uavLocations[self.pictureLocation-1][1]))
-            self.frame.evaluateJavaScript("removeMarker("+str(self.uavLocations[self.pictureLocation][0]) +", "+str(self.uavLocations[self.pictureLocation][1]) +")")
+            self.frame.evaluateJavaScript("removeMarker("+str(self.uavLocations[self.pictureLocation-1][0]) +", "+str(self.uavLocations[self.pictureLocation-1][1]) +")")
             self.uavLocations[self.pictureLocation] = [self.latitude, self.longitude]
             
     #Scroll Backwards
@@ -285,6 +316,7 @@ class Ui_MainWindow(QtCore.QObject):
     #send return home command to UAV    
     def returnHomeCommand(self):
         print("return home command")
+        self.ser.write(b'returnHomeCommand')
     
     #send hover command to UAV
     def hoverCommand(self):
@@ -293,6 +325,37 @@ class Ui_MainWindow(QtCore.QObject):
     #send energency stop command to UAV    
     def emergCommand(self):
         print("emergency stop")
+        
+    #comm test for Fizza
+    def commTest(self, read):
+        self.batteryProgress.setProperty("value", read[0])
+        
+    def monitorSerial(self):
+        
+        #fcntl.fcntl(sys.stdin, fctnl.F_SETFL, os.O_NONBLOCK)
+        
+        while 1:
+            receive = self.ser.inWaiting()
+            if receive:
+                
+                self.latitude = self.ser.readline().decode('UTF-8')
+                print(self.latitude)
+                '''self.longitude = self.ser.readline().decode('UTF-8')
+                self.coordinates.append([self.latitude, self.longitude])
+                power = self.ser.readline().decode('UTF-8')
+                self.batteryProgress.setProperty("value", int(power))
+                waypoint = self.ser.readline().decode('UTF-8')
+                
+                if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
+                    self.pictureLocation = Ui_MainWindow.INDEX_MIN
+                else:
+                    self.pictureLocation = self.pictureLocation +1
+                if(self.pictureLocation > self.maxIndex):
+                    self.maxIndex = self.pictureLocation
+                    
+                self.mysignal.emit()'''
+                
+        
             
         
 if __name__ == '__main__':
@@ -302,6 +365,7 @@ if __name__ == '__main__':
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
     w = monitor.Watcher(ui.dirInput, ui.dirStore, ui.dirDisplay, ui)
-    t1 = threading.Thread(target=w.run, daemon=True)
+    #t1 = threading.Thread(target=w.run, daemon=True)
+    t1 = threading.Thread(target=ui.monitorSerial, daemon=True)
     t1.start()
     sys.exit(app.exec_())
