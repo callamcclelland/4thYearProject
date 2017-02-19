@@ -337,15 +337,27 @@ class Ui_MainWindow(QtCore.QObject):
         while 1:
             receive = self.ser.inWaiting()
             if receive:
-                
-                self.latitude = self.ser.readline().decode('UTF-8')
-                print(self.latitude)
-                '''self.longitude = self.ser.readline().decode('UTF-8')
+                self.longitude = self.ser.readline().decode('UTF-8')
                 self.coordinates.append([self.latitude, self.longitude])
                 power = self.ser.readline().decode('UTF-8')
                 self.batteryProgress.setProperty("value", int(power))
                 waypoint = self.ser.readline().decode('UTF-8')
-                
+                data = []
+                jpeg = True
+                while jpeg:
+                    b = self.ser.read()
+                    data.append(b)
+                    if(str(b)[2:-1] == "\\xff"):
+                        print("in loop")
+                        b = self.ser.read()
+                        if(str(b)[2:-1]  == "\\xd9"):
+                            print("end")
+                            jpeg = False
+                        data.append(b)
+                    
+                with open('/home/calla/workspace/Gui/src/qtGUI/commTest.jpg', 'wb') as f:
+                    for i in data:
+                        f.write(bytearray(i))
                 if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
                     self.pictureLocation = Ui_MainWindow.INDEX_MIN
                 else:
@@ -353,7 +365,7 @@ class Ui_MainWindow(QtCore.QObject):
                 if(self.pictureLocation > self.maxIndex):
                     self.maxIndex = self.pictureLocation
                     
-                self.mysignal.emit()'''
+                self.mysignal.emit()
                 
         
             
