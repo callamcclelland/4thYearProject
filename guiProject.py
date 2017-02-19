@@ -337,6 +337,7 @@ class Ui_MainWindow(QtCore.QObject):
         while 1:
             receive = self.ser.inWaiting()
             if receive:
+                self.latitude = self.ser.readline().decode('UTF-8')
                 self.longitude = self.ser.readline().decode('UTF-8')
                 self.coordinates.append([self.latitude, self.longitude])
                 power = self.ser.readline().decode('UTF-8')
