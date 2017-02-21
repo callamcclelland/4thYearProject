@@ -28,6 +28,7 @@ class Ui_MainWindow(QtCore.QObject):
     updateLoc = pyqtSignal()
     startTimer = pyqtSignal()
     resetTimer = pyqtSignal()
+    warningBox = pyqtSignal()
     
     
     TESTING_COMM = False
@@ -49,7 +50,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.dirDisplay = "/home/calla/workspace/Gui/src/qtGUI"
         self.maxIndex = 1
         self.currWaypoint = 1
-        self.commTime = threading.Timer(10, self.commLost, ())
+        self.commTime = threading.Timer(60, self.commLost, ())
         
         #serial port
         self.ser = serial.Serial()
@@ -111,6 +112,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.updateLoc.connect(self.panToLoc)
         self.startTimer.connect(self.startTime)
         self.resetTimer.connect(self.resetTime)
+        self.warningBox.connect(self.commWarning)
         
         #Controls: MAP; set origin, finish path
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
@@ -334,15 +336,20 @@ class Ui_MainWindow(QtCore.QObject):
         print("emergency stop")
         
     def commLost(self):
+        self.warningBox.emit()
+        
+    def commWarning(self):
         msgBox = QtWidgets.QMessageBox()
         msgBox.setText("The Commlink is down")
         msgBox.exec()
         
-    def startTime(self):  
+    def startTime(self): 
+        self.commTime.daemon=True 
         self.commTime.start()
         
     def resetTime(self):
         self.commTime.cancel()
+        self.commTime = threading.Timer(30, self.commLost, ())
         self.commTime.start()
         
     def monitorSerial(self):
