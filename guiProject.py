@@ -26,6 +26,9 @@ class Ui_MainWindow(QtCore.QObject):
     DATA_TYPE = ".txt"
     mysignal = pyqtSignal()
     updateLoc = pyqtSignal()
+    startTimer = pyqtSignal()
+    resetTimer = pyqtSignal()
+    
     
     TESTING_COMM = False
     
@@ -44,8 +47,9 @@ class Ui_MainWindow(QtCore.QObject):
         self.dirStore = "/home/calla/Output"
         self.dirInput = "/home/calla/Input"
         self.dirDisplay = "/home/calla/workspace/Gui/src/qtGUI"
-        self.maxIndex = 0
-        self.currWaypoint = 0
+        self.maxIndex = 1
+        self.currWaypoint = 1
+        self.commTime = threading.Timer(10, self.commLost, ())
         
         #serial port
         self.ser = serial.Serial()
@@ -105,6 +109,8 @@ class Ui_MainWindow(QtCore.QObject):
         self.verticalLayout.addWidget(self.map)
         self.mysignal.connect(self.changeMap)
         self.updateLoc.connect(self.panToLoc)
+        self.startTimer.connect(self.startTime)
+        self.resetTimer.connect(self.resetTime)
         
         #Controls: MAP; set origin, finish path
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
@@ -263,13 +269,14 @@ class Ui_MainWindow(QtCore.QObject):
     
     #Add new GPS point to map
     def changeMap(self):
+        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.frame.evaluateJavaScript("addMarker("+str(self.latitude)+", "+str(self.longitude)+")")
         if(self.maxIndex > len(self.uavLocations)):
             self.uavLocations.append([self.latitude, self.longitude]);
         else:
             print(str(self.uavLocations[self.pictureLocation-1][0]) + "   " + str(self.uavLocations[self.pictureLocation-1][1]))
             self.frame.evaluateJavaScript("removeMarker("+str(self.uavLocations[self.pictureLocation-1][0]) +", "+str(self.uavLocations[self.pictureLocation-1][1]) +")")
-            self.uavLocations[self.pictureLocation] = [self.latitude, self.longitude]
+            self.uavLocations[self.pictureLocation-1] = [self.latitude, self.longitude]
             
     #Scroll Backwards
     def scrollLeft(self):
@@ -326,22 +333,34 @@ class Ui_MainWindow(QtCore.QObject):
     def emergCommand(self):
         print("emergency stop")
         
-    #comm test for Fizza
-    def commTest(self, read):
-        self.batteryProgress.setProperty("value", read[0])
+    def commLost(self):
+        msgBox = QtWidgets.QMessageBox()
+        msgBox.setText("The Commlink is down")
+        msgBox.exec()
+        
+    def startTime(self):  
+        self.commTime.start()
+        
+    def resetTime(self):
+        self.commTime.cancel()
+        self.commTime.start()
         
     def monitorSerial(self):
         
         #fcntl.fcntl(sys.stdin, fctnl.F_SETFL, os.O_NONBLOCK)
-        
+        self.startTimer.emit()
         while 1:
             receive = self.ser.inWaiting()
             if receive:
+                self.resetTimer.emit()
+                currTime = datetime.datetime.now().strftime("%I-%M-%S")
                 self.latitude = self.ser.readline().decode('UTF-8')
+                print(self.latitude)
                 self.longitude = self.ser.readline().decode('UTF-8')
+                print(self.longitude)
                 self.coordinates.append([self.latitude, self.longitude])
                 power = self.ser.readline().decode('UTF-8')
-                self.batteryProgress.setProperty("value", int(power))
+                print(power)
                 waypoint = self.ser.readline().decode('UTF-8')
                 data = []
                 jpeg = True
@@ -349,23 +368,30 @@ class Ui_MainWindow(QtCore.QObject):
                     b = self.ser.read()
                     data.append(b)
                     if(str(b)[2:-1] == "\\xff"):
-                        print("in loop")
                         b = self.ser.read()
+                        print(b)
                         if(str(b)[2:-1]  == "\\xd9"):
-                            print("end")
                             jpeg = False
                         data.append(b)
                     
-                with open('/home/calla/workspace/Gui/src/qtGUI/commTest.jpg', 'wb') as f:
+                with open(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 'wb') as f:
                     for i in data:
                         f.write(bytearray(i))
-                if(self.pictureLocation == Ui_MainWindow.INDEX_MAX):
+                print(str(self.currWaypoint).strip() + "   "+ str(waypoint).strip())
+                if((not (str(self.currWaypoint).strip() == str(waypoint).strip() )) and str(waypoint).strip() == "1"):
+                    self.maxIndex = self.pictureLocation
                     self.pictureLocation = Ui_MainWindow.INDEX_MIN
                 else:
                     self.pictureLocation = self.pictureLocation +1
+                self.currWaypoint = waypoint
+                
+                #First round through circle
                 if(self.pictureLocation > self.maxIndex):
-                    self.maxIndex = self.pictureLocation
-                    
+                    self.maxIndex = self.pictureLocation   
+                
+                shutil.copy(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 
+                    self.dirDisplay+"/"+ Ui_MainWindow.IMAGE_NAME +str(self.pictureLocation)+ Ui_MainWindow.IMAGE_TYPE)    
+                self.batteryProgress.setProperty("value", int(power))
                 self.mysignal.emit()
                 
         
