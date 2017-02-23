@@ -2,6 +2,22 @@ from __future__ import print_function
 
 class Map(object):
     def __str__(self):
+        
+        """
+        Creates the map
+        
+        Creates the map, with the javascript functions neccessary to pass data to and from the
+        GUI
+        
+        Parameters
+        ----------
+        
+        Returns
+        String
+            A String which is all text for the HTML file map.
+        
+        
+        """
         return """
             <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=true"></script>
             <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>

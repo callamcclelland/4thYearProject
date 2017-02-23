@@ -1,10 +1,7 @@
 import time
-import datetime
-import shutil
 import glob
 import guiProject
-import untangle
-import folium
+import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from urllib.request import FileHandler
@@ -22,6 +19,20 @@ class Watcher:
         self.ui = ui
 
     def run(self):
+        """
+        Creates an event_handler and waits for a signal.
+        
+        Creates an event_handler and then waits for the signal from the handler that something
+        has happened.
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        
+        
+        """
         event_handler = Handler(self.dirInput, self.dirStore, self.dirDisplay, self.ui)
         self.observer.schedule(event_handler, self.dirInput, recursive=True)
         self.observer.start()
@@ -46,11 +57,30 @@ class Handler(FileSystemEventHandler):
         self.index = guiProject.Ui_MainWindow.INDEX_MIN
 
     def on_created(self, event):
-        for fileImage in glob.glob(self.dirInput+"/*"+ guiProject.Ui_MainWindow.IMAGE_TYPE):
-            for fileData in glob.glob(self.dirInput+"/*" +  guiProject.Ui_MainWindow.DATA_TYPE):
-                if(self.index > guiProject.Ui_MainWindow.INDEX_MAX):
-                    self.index = guiProject.Ui_MainWindow.INDEX_MIN
-                self.index = self.index+1
-                self.mainWindow.update( fileImage, fileData)
+        """
+        Monitors a directory and calls the MainWindow update function on the GUI
+        
+        Monitors a directory, when a file is created in the directory, it checks that there is a jpeg
+        and a text file.  If there is both file types then it calls the MainWindow update function,
+        and passes in both file paths.
+        
+        Parameters
+        ----------
+        
+        Returns
+        -------
+        
+        
+        """
+        if(guiProject.Ui_MainWindow.TESTING_COMM):
+            for fileData in glob.glob(self.dirInput+"/*" + ".txt"):
+                with open(fileData, 'r') as f:
+                    read = f.read().split('\n')
+                    self.mainWindow.commTest(read)
+                os.remove(fileData)
+        else:
+            for fileImage in glob.glob(self.dirInput+"/*"+ guiProject.Ui_MainWindow.IMAGE_TYPE):
+                for fileData in glob.glob(self.dirInput+"/*" +  guiProject.Ui_MainWindow.DATA_TYPE):
+                    self.mainWindow.update( fileImage, fileData)
 
             
