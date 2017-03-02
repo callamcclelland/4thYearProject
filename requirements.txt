@@ -1,0 +1,10 @@
+adium-theme-ubuntu==0.3.4
+folium==0.2.1
+gyp==0.1
+Jinja2==2.8
+MarkupSafe==0.23
+osmapi==0.6.2
+PyInstaller==3.2.1
+pyserial==3.0.1
+unity-lens-photos==1.0
+untangle==1.1.0
