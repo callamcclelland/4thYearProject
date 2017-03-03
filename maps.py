@@ -26,6 +26,7 @@ class Map(object):
                 var map;
                 var pathComplete = 0;
                 var markers = [];
+                var currMarker = [];
                 function show_map() {{
                     map = new google.maps.Map(document.getElementById("map-canvas"), {{
                         zoom: 18,
@@ -53,9 +54,22 @@ class Map(object):
                 function addMarker(lat, lng){{
                         var myLatLng = new google.maps.LatLng(lat,lng);
                         var beachMarker = new google.maps.Marker({{position: myLatLng,
-                                                                    map: map
+                                                                    map: map,
+                                                                    icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
                                                                     }});
                         markers.push(beachMarker);
+                    }}
+                function addCurrMarker(lat, lng){{
+                        var j;
+                        for(j=0;j<currMarker.length;j++){{
+                            currMarker[j].setMap(null);
+                        }}
+                        var myLatLng = new google.maps.LatLng(lat,lng);
+                        var beachMarker = new google.maps.Marker({{position: myLatLng,
+                                                                    map: map,
+                                                                    icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                                                                    }});
+                        currMarker.push(beachMarker);
                     }}
                 function setPathComplete(){{
                         pathComplete = !pathComplete;

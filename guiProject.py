@@ -2,15 +2,16 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWebKit import *
 from PyQt5.QtWebKitWidgets import *
 import sys
+import tempfile
+import os
 import shutil
 import datetime
 import maps
 import threading
-import untangle
 from qtGUI import monitor
 from PyQt5.Qt import QDoubleValidator
 from PyQt5.Qt import pyqtSignal
-import tester
+import stationLocation
 import serial
  
 #TO DO:
@@ -30,19 +31,27 @@ class Ui_MainWindow(QtCore.QObject):
     resetTimer = pyqtSignal()
     warningBox = pyqtSignal()
     
-    
-    TESTING_COMM = False
-    
+    READ_FILE = True
         
     def setupUi(self, MainWindow):
         
         #USED FOR TESTING ONLY
-        self.dirStore = "/home/calla/Output"
         self.dirInput = "/home/calla/Input"
         self.dirDisplay = "/home/calla/workspace/Gui/src/qtGUI"
         
         
+        cwd = os.getcwd()
+        self.mapLocal = 'file://'+cwd+'/map.html'
+        currTime = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.dirStore = cwd+'/'+currTime
+        os.makedirs(self.dirStore)
+        self.dirDisplay = tempfile.mkdtemp()
+        print(self.dirDisplay)
+        
+        
         self.index = 1
+        self.previousLat = -1
+        self.previousLng = -1
         self.latitude = 0
         self.longitude = 0
         self.waypoints = []
@@ -55,11 +64,12 @@ class Ui_MainWindow(QtCore.QObject):
         self.commTime = threading.Timer(self.TIMEOUT, self.warningBox.emit, ())
         
         #set up the serial port for Communication
-        self.ser = serial.Serial()
-        self.ser.port = '/dev/ttyUSB0'
-        self.ser.baudrate = 9600
-        self.ser.timeout = 1
-        self.ser.open()
+        if(not self.READ_FILE):
+            self.ser = serial.Serial()
+            self.ser.port = '/dev/ttyUSB0'
+            self.ser.baudrate = 9600
+            self.ser.timeout = 1
+            self.ser.open()
         
         #Set up MainWindow
         MainWindow.setObjectName("MainWindow")
@@ -72,7 +82,7 @@ class Ui_MainWindow(QtCore.QObject):
         #Set up the image widget for displaying JPEGS
         self.image = QtWidgets.QLabel(self.centralwidget)
         self.image.setText("")
-        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+        self.image.setPixmap(QtGui.QPixmap(self.dirDisplay+"/"+Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.image.setScaledContents(True)
         self.image.setObjectName("image")
         self.gridLayout.addWidget(self.image, 0, 0, 1, 1)
@@ -103,11 +113,12 @@ class Ui_MainWindow(QtCore.QObject):
         map_google = maps.Map()
         with open("map.html", "w") as out:
             print(map_google, file=out)
-        self.map = QWebView(self.centralwidget)
-        self.map.load(QtCore.QUrl('file:///home/calla/workspace/Gui/src/qtGUI/map.html'))
+        #self.map = QWebView(self.centralwidget)
+        self.map = QWebView()
+        self.map.load(QtCore.QUrl(self.mapLocal))
         self.map.setObjectName("map")
         self.frame = self.map.page().mainFrame()
-        self.station_location = tester.StationLocation()
+        self.station_location = stationLocation.StationLocation()
         self.frame.addToJavaScriptWindowObject('statLoc', self)
         self.verticalLayout.addWidget(self.map)
         self.updateMapAndImage.connect(self.changeMap)
@@ -267,13 +278,13 @@ class Ui_MainWindow(QtCore.QObject):
         shutil.move(fileData, txtName)
         
         f =open(txtName, "r")
-        
+        self.previousLat = self.latitude
+        self.previousLng = self.longitude
         self.latitude = f.readline()
         self.longitude = f.readline()
         power = f.readline()
         waypoint = f.readline()
-        self.batteryProgress.setProperty("value", float(power)) 
-        waypoint = f.readline()
+        self.batteryProgress.setProperty("value", float(power))
             
         if((not (str(self.currWaypoint).strip() == str(waypoint).strip() )) and str(waypoint).strip() == "1"):
                 self.maxIndex = self.pictureLocation
@@ -289,7 +300,6 @@ class Ui_MainWindow(QtCore.QObject):
         shutil.copy(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 
                     self.dirDisplay+"/"+ Ui_MainWindow.IMAGE_NAME +str(self.pictureLocation)+ Ui_MainWindow.IMAGE_TYPE)
        
-        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
         self.updateMapAndImage.emit()
         '''doc = untangle.parse(xmlName)
         self.latitude = float(doc.data.gps['latitude'])
@@ -315,8 +325,11 @@ class Ui_MainWindow(QtCore.QObject):
         
         
         """
-        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
-        self.frame.evaluateJavaScript("addMarker("+str(self.latitude)+", "+str(self.longitude)+")")
+        self.image.setPixmap(QtGui.QPixmap(self.dirDisplay+"/"+Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+        if(not self.previousLat == -1 and not self.previousLng==-1):
+            self.frame.evaluateJavaScript("addMarker("+str(self.previousLat)+", "+str(self.previousLng)+")")
+        self.frame.evaluateJavaScript("addCurrMarker("+str(self.latitude)+", "+str(self.longitude)+")")
+        
         if(self.maxIndex > len(self.uavLocations)):
             self.uavLocations.append([self.latitude, self.longitude]);
         else:
@@ -343,7 +356,7 @@ class Ui_MainWindow(QtCore.QObject):
         if self.index < Ui_MainWindow.INDEX_MIN:
             self.index = self.maxIndex
         print(self.index)
-        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+        self.image.setPixmap(QtGui.QPixmap(self.dirDisplay + "/"+Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
     
     def scrollRight(self):
         """
@@ -364,7 +377,7 @@ class Ui_MainWindow(QtCore.QObject):
         if self.index > self.maxIndex:
             self.index = Ui_MainWindow.INDEX_MIN
         print(self.index)
-        self.image.setPixmap(QtGui.QPixmap(Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+        self.image.setPixmap(QtGui.QPixmap(self.dirDisplay+"/"+Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
          
     @QtCore.pyqtSlot(float, float)
     def addPath(self,lat,lng):
@@ -466,7 +479,8 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         self.frame.evaluateJavaScript("setPathComplete()")
-        self.ser.write(b'path set send waypoints?')
+        if(not self.READ_FILE):
+            self.ser.write(b'path set send waypoints?')
       
     def returnHomeCommand(self):
         """
@@ -482,7 +496,8 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         print("return home command")
-        self.ser.write(b'returnHomeCommand')
+        if(not self.READ_FILE):
+            self.ser.write(b'returnHomeCommand')
     
     def sendControlCommand(self):
         """
@@ -498,7 +513,8 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         print("control command")
-        self.ser.write(b'control command')
+        if(not self.READ_FILE):
+            self.ser.write(b'control command')
      
     #send emergency stop command to UAV    
     def emergCommand(self):
@@ -515,7 +531,8 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         print("emergency stop")
-        self.ser.write(b'emergency command')
+        if(not self.READ_FILE):
+            self.ser.write(b'emergency command')
      
     def commWarning(self):
         """
@@ -566,7 +583,7 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         self.commTime.cancel()
-        self.commTime = threading.Timer(Tself.IMEOUT, self.commLost, ())
+        self.commTime = threading.Timer(self.TIMEOUT, self.commLost, ())
         self.commTime.daemon=True 
         self.commTime.start()
     
@@ -594,8 +611,10 @@ class Ui_MainWindow(QtCore.QObject):
             if receive:
                 self.resetTimer.emit()
                 currTime = datetime.datetime.now().strftime("%I-%M-%S")
+                self.previousLat = self.latitude
                 self.latitude = self.ser.readline().decode('UTF-8')
                 print(self.latitude)
+                self.previousLng = self.longitude;
                 self.longitude = self.ser.readline().decode('UTF-8')
                 print(self.longitude)
                 power = self.ser.readline().decode('UTF-8')
@@ -642,8 +661,15 @@ if __name__ == '__main__':
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
-    w = monitor.Watcher(ui.dirInput, ui.dirStore, ui.dirDisplay, ui)
-    #t1 = threading.Thread(target=w.run, daemon=True)
-    t1 = threading.Thread(target=ui.monitorSerial, daemon=True)
+    if(ui.READ_FILE):
+        w = monitor.Watcher(ui.dirInput, ui.dirStore, ui.dirDisplay, ui)
+        t1 = threading.Thread(target=w.run, daemon=True)
+    else:
+        t1 = threading.Thread(target=ui.monitorSerial, daemon=True)
     t1.start()
-    sys.exit(app.exec_())
+    try:
+        sys.exit(app.exec_())
+    except:
+        pass
+    finally:
+        shutil.rmtree(ui.dirDisplay)

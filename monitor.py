@@ -72,15 +72,10 @@ class Handler(FileSystemEventHandler):
         
         
         """
-        if(guiProject.Ui_MainWindow.TESTING_COMM):
-            for fileData in glob.glob(self.dirInput+"/*" + ".txt"):
-                with open(fileData, 'r') as f:
-                    read = f.read().split('\n')
-                    self.mainWindow.commTest(read)
-                os.remove(fileData)
-        else:
-            for fileImage in glob.glob(self.dirInput+"/*"+ guiProject.Ui_MainWindow.IMAGE_TYPE):
-                for fileData in glob.glob(self.dirInput+"/*" +  guiProject.Ui_MainWindow.DATA_TYPE):
-                    self.mainWindow.update( fileImage, fileData)
+        
+        
+        for fileImage in glob.glob(self.dirInput+"/*"+ guiProject.Ui_MainWindow.IMAGE_TYPE):
+            for fileData in glob.glob(self.dirInput+"/*" +  guiProject.Ui_MainWindow.DATA_TYPE):
+                self.mainWindow.update( fileImage, fileData)
 
             
