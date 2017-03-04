@@ -57,7 +57,11 @@ class Map(object):
                                                                     map: map,
                                                                     icon: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
                                                                     }});
+                        beachMarker.addListener("dblclick", function() {{
+                                statLoc.changePicture(lat, lng)  
+                            }});
                         markers.push(beachMarker);
+                        
                     }}
                 function addCurrMarker(lat, lng){{
                         var j;
@@ -69,6 +73,9 @@ class Map(object):
                                                                     map: map,
                                                                     icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
                                                                     }});
+                        beachMarker.addListener("dblclick", function() {{
+                                statLoc.changePicture(lat, lng)  
+                            }});
                         currMarker.push(beachMarker);
                     }}
                 function setPathComplete(){{

@@ -41,12 +41,12 @@ class Ui_MainWindow(QtCore.QObject):
         
         
         cwd = os.getcwd()
-        self.mapLocal = 'file://'+cwd+'/map.html'
+        
         currTime = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         self.dirStore = cwd+'/'+currTime
         os.makedirs(self.dirStore)
         self.dirDisplay = tempfile.mkdtemp()
-        print(self.dirDisplay)
+        self.mapLocal = 'file://'+self.dirDisplay+'/map.html'
         
         
         self.index = 1
@@ -111,10 +111,9 @@ class Ui_MainWindow(QtCore.QObject):
       
         #Set Up Map
         map_google = maps.Map()
-        with open("map.html", "w") as out:
+        with open(self.dirDisplay+'/map.html', "w") as out:
             print(map_google, file=out)
-        #self.map = QWebView(self.centralwidget)
-        self.map = QWebView()
+        self.map = QWebView(self.centralwidget)
         self.map.load(QtCore.QUrl(self.mapLocal))
         self.map.setObjectName("map")
         self.frame = self.map.page().mainFrame()
@@ -235,8 +234,8 @@ class Ui_MainWindow(QtCore.QObject):
         """
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.leftButton.setText(_translate("MainWindow", "PushButton"))
-        self.rightButton.setText(_translate("MainWindow", "PushButton"))
+        self.leftButton.setText(_translate("MainWindow", "Backwards"))
+        self.rightButton.setText(_translate("MainWindow", "Forwards"))
         self.flightLabel.setText(_translate("MainWindow", "Flight Path"))
         self.controlLabel.setText(_translate("MainWindow", "Map and UAV Controls"))
         self.pathDonePushButton.setText(_translate("MainWindow", "Path Complete"))
@@ -378,7 +377,37 @@ class Ui_MainWindow(QtCore.QObject):
             self.index = Ui_MainWindow.INDEX_MIN
         print(self.index)
         self.image.setPixmap(QtGui.QPixmap(self.dirDisplay+"/"+Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
-         
+    
+    @QtCore.pyqtSlot(float, float)
+    def changePicture(self,lat,lng):
+        """
+        Adjust Picture to Users click
+        
+        This method is called from the map html file when the user double clicks on a marker
+        on the map and the picture changes to the related image
+        
+        Parameters
+        ----------
+        lat: float
+            The latitude location of the users click
+            
+        lng: float
+            The longitude location of the users click
+        
+        Returns
+        -------
+        
+        """
+        i=0
+        for point in self.uavLocations:
+            i=i+1
+            if(str(point[0]).strip()==str(lat).strip() and str(point[1]).strip()==str(lng).strip()):
+                self.index=i;
+        
+        self.image.setPixmap(QtGui.QPixmap(self.dirDisplay+"/"+Ui_MainWindow.IMAGE_NAME + str(self.index) + Ui_MainWindow.IMAGE_TYPE))
+
+
+
     @QtCore.pyqtSlot(float, float)
     def addPath(self,lat,lng):
         """
