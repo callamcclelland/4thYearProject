@@ -13,6 +13,7 @@ from PyQt5.Qt import QDoubleValidator
 from PyQt5.Qt import pyqtSignal
 import stationLocation
 import serial
+import time
  
 #TO DO:
 #    1) # GPS for circle coming round
@@ -21,17 +22,17 @@ import serial
 #    4) integration with Ann
 class Ui_MainWindow(QtCore.QObject):
     INDEX_MIN = 1
-    TIMEOUT = 90
+    TIMEOUT = 60
     IMAGE_NAME = "image"
-    IMAGE_TYPE = ".jpeg"
+    IMAGE_TYPE = ".jpg"
     DATA_TYPE = ".txt"
     updateMapAndImage = pyqtSignal()
     updateLoc = pyqtSignal()
-    startTimer = pyqtSignal()
+    timeOutSignal = pyqtSignal()
     resetTimer = pyqtSignal()
     warningBox = pyqtSignal()
     
-    READ_FILE = True
+    READ_FILE = False
         
     def setupUi(self, MainWindow):
         
@@ -61,13 +62,15 @@ class Ui_MainWindow(QtCore.QObject):
         self.pictureLocation = 0
         self.maxIndex = 1
         self.currWaypoint = 1
-        self.commTime = threading.Timer(self.TIMEOUT, self.warningBox.emit, ())
+        self.timedOut = False
+        self.counter = 0;
+
         
         #set up the serial port for Communication
         if(not self.READ_FILE):
             self.ser = serial.Serial()
             self.ser.port = '/dev/ttyUSB0'
-            self.ser.baudrate = 9600
+            self.ser.baudrate = 19200
             self.ser.timeout = 1
             self.ser.open()
         
@@ -117,14 +120,13 @@ class Ui_MainWindow(QtCore.QObject):
         self.map.load(QtCore.QUrl(self.mapLocal))
         self.map.setObjectName("map")
         self.frame = self.map.page().mainFrame()
-        self.station_location = stationLocation.StationLocation()
         self.frame.addToJavaScriptWindowObject('statLoc', self)
         self.verticalLayout.addWidget(self.map)
         self.updateMapAndImage.connect(self.changeMap)
         self.updateLoc.connect(self.panToLoc)
-        self.startTimer.connect(self.startTime)
         self.resetTimer.connect(self.resetTime)
         self.warningBox.connect(self.commWarning)
+        self.timeOutSignal.connect(self.commDownWarn)
         
         #Controls: MAP; set origin, finish path
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
@@ -577,25 +579,23 @@ class Ui_MainWindow(QtCore.QObject):
         -------
         
         """
-        msgBox = QtWidgets.QMessageBox()
-        msgBox.setText("The Commlink is down")
-        msgBox.exec()
+        while True:
+            if(self.timedOut == False):
+                self.counter = self.counter+1
+                time.sleep(1)
+                if(self.counter == self.TIMEOUT):
+                    self.timeOutSignal.emit()
+            else:
+                pass
        
-    def startTime(self): 
-        """
-        The commTime timer is started.
+
+    def commDownWarn(self): 
+        if(not self.READ_FILE):
+            self.timedOut = True
+            msgBox = QtWidgets.QMessageBox()
+            msgBox.setText("The Commlink is down")
+            msgBox.exec()
         
-        The commTime timer is started, and timer daemon is set to true.
-        
-        Parameters
-        ----------
-        
-        Returns
-        -------
-        
-        """
-        self.commTime.daemon=True 
-        self.commTime.start()
         
     def resetTime(self):
         """
@@ -611,10 +611,10 @@ class Ui_MainWindow(QtCore.QObject):
         -------
         
         """
-        self.commTime.cancel()
-        self.commTime = threading.Timer(self.TIMEOUT, self.commLost, ())
-        self.commTime.daemon=True 
-        self.commTime.start()
+        self.counter = 0
+        self.timedOut = False
+        
+        
     
     def monitorSerial(self):
         """
@@ -634,10 +634,10 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         #fcntl.fcntl(sys.stdin, fctnl.F_SETFL, os.O_NONBLOCK)
-        self.startTimer.emit()
         while 1:
             receive = self.ser.inWaiting()
             if receive:
+                print("rec")
                 self.resetTimer.emit()
                 currTime = datetime.datetime.now().strftime("%I-%M-%S")
                 self.previousLat = self.latitude
@@ -651,6 +651,7 @@ class Ui_MainWindow(QtCore.QObject):
                 waypoint = self.ser.readline().decode('UTF-8')
                 data = []
                 jpeg = True
+                print(waypoint)
                 while jpeg:
                     b = self.ser.read()
                     data.append(b)
@@ -659,8 +660,9 @@ class Ui_MainWindow(QtCore.QObject):
                         print(b)
                         if(str(b)[2:-1]  == "\\xd9"):
                             jpeg = False
+                            print("end")
                         data.append(b)
-                self.ser.readline()
+                #self.ser.readline()
                 with open(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 'wb') as f:
                     for i in data:
                         f.write(bytearray(i))
@@ -679,6 +681,7 @@ class Ui_MainWindow(QtCore.QObject):
                 shutil.copy(self.dirStore+"/"+ currTime +"-image" + Ui_MainWindow.IMAGE_TYPE, 
                     self.dirDisplay+"/"+ Ui_MainWindow.IMAGE_NAME +str(self.pictureLocation)+ Ui_MainWindow.IMAGE_TYPE)    
                 self.batteryProgress.setProperty("value", int(power))
+                
                 self.updateMapAndImage.emit()
                 
         
@@ -696,6 +699,8 @@ if __name__ == '__main__':
     else:
         t1 = threading.Thread(target=ui.monitorSerial, daemon=True)
     t1.start()
+    t2 = threading.Thread(target=ui.commWarning, daemon=True)
+    t2.start()
     try:
         sys.exit(app.exec_())
     except:

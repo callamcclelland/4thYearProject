@@ -79,7 +79,7 @@ class Map(object):
                         currMarker.push(beachMarker);
                     }}
                 function setPathComplete(){{
-                        pathComplete = !pathComplete;
+                        pathComplete = 1;
                 }}
                 function removeMarker(lat, lng){{
                         var removeLatLng = new google.maps.LatLng(lat,lng);
