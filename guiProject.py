@@ -32,7 +32,7 @@ class Ui_MainWindow(QtCore.QObject):
     resetTimer = pyqtSignal()
     warningBox = pyqtSignal()
     
-    READ_FILE = False
+    READ_FILE = True
         
     def setupUi(self, MainWindow):
         
@@ -64,6 +64,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.currWaypoint = 1
         self.timedOut = False
         self.counter = 0;
+        self.alt=0
 
         
         #set up the serial port for Communication
@@ -132,10 +133,28 @@ class Ui_MainWindow(QtCore.QObject):
         self.controlLabel = QtWidgets.QLabel(self.centralwidget)
         self.controlLabel.setObjectName("controlLabel")
         self.verticalLayout.addWidget(self.controlLabel)
+        self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_4.setSizeConstraint(QtWidgets.QLayout.SetDefaultConstraint)
+        self.horizontalLayout_4.setContentsMargins(-1, -1, -1, 0)
+        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
+        self.altLab = QtWidgets.QLabel(self.centralwidget)
+        self.altLab.setObjectName("altLab")
+        self.horizontalLayout_4.addWidget(self.altLab)
+        self.altitude = QtWidgets.QLineEdit(self.centralwidget)
+        self.altitude.setObjectName("altitude")
+        self.altitude.setValidator(QDoubleValidator(0, 100, 8,))
+        self.horizontalLayout_4.addWidget(self.altitude)
         self.pathDonePushButton = QtWidgets.QPushButton(self.centralwidget)
         self.pathDonePushButton.setObjectName("pathDonePushButton")
         self.pathDonePushButton.clicked.connect(self.pathSet)
-        self.verticalLayout.addWidget(self.pathDonePushButton)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.pathDonePushButton.sizePolicy().hasHeightForWidth())
+        self.pathDonePushButton.setSizePolicy(sizePolicy)
+        self.horizontalLayout_4.addWidget(self.pathDonePushButton)
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
+        self.pathDonePushButton.clicked.connect(self.pathSet)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setContentsMargins(-1, -1, -1, 0)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -250,6 +269,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.batteryLabel.setText(_translate("MainWindow", "Battery Power"))
         self.menuFile.setTitle(_translate("MainWindow", "File"))
         self.actionFile.setText(_translate("MainWindow", "File"))
+        self.altLab.setText(_translate("MainWindow", "altitude (m)"))
     
     #ONLY USED FOR TESTING
     def update(self, fileImage, fileData):
@@ -510,8 +530,13 @@ class Ui_MainWindow(QtCore.QObject):
         
         """
         self.frame.evaluateJavaScript("setPathComplete()")
+        self.alt= self.altitude.text()
+        self.altitude.setReadOnly(True)
+        print(self.alt)
         if(not self.READ_FILE):
             self.ser.write(b'path set send waypoints?')
+            
+            
       
     def returnHomeCommand(self):
         """
