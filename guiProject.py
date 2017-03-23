@@ -143,6 +143,7 @@ class Ui_MainWindow(QtCore.QObject):
         self.altitude = QtWidgets.QLineEdit(self.centralwidget)
         self.altitude.setObjectName("altitude")
         self.altitude.setValidator(QDoubleValidator(0, 100, 8,))
+        self.altitude.textChanged.connect(self.altTextChange)
         self.horizontalLayout_4.addWidget(self.altitude)
         self.pathDonePushButton = QtWidgets.QPushButton(self.centralwidget)
         self.pathDonePushButton.setObjectName("pathDonePushButton")
@@ -152,6 +153,7 @@ class Ui_MainWindow(QtCore.QObject):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.pathDonePushButton.sizePolicy().hasHeightForWidth())
         self.pathDonePushButton.setSizePolicy(sizePolicy)
+        self.pathDonePushButton.setEnabled(False)
         self.horizontalLayout_4.addWidget(self.pathDonePushButton)
         self.verticalLayout.addLayout(self.horizontalLayout_4)
         self.pathDonePushButton.clicked.connect(self.pathSet)
@@ -532,11 +534,17 @@ class Ui_MainWindow(QtCore.QObject):
         self.frame.evaluateJavaScript("setPathComplete()")
         self.alt= self.altitude.text()
         self.altitude.setReadOnly(True)
+        self.pathDonePushButton.setEnabled(False)
         print(self.alt)
         if(not self.READ_FILE):
             self.ser.write(b'path set send waypoints?')
             
             
+    def altTextChange(self):
+        if(len(str(self.altitude))>0):
+            self.pathDonePushButton.setEnabled(True)
+        else:
+            self.pathDonePushButton.setEnabled(False)
       
     def returnHomeCommand(self):
         """
